@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+.venv-ls/
+venv/
+.env
+*.pt
+*.pth
+runs/
+.idea/
+.DS_Store
+Ultralytics/
+data/raw/*
+!data/raw/.gitkeep
+weights/*
+!weights/.gitkeep
