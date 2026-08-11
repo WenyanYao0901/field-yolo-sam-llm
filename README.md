@@ -12,11 +12,20 @@ This repository implements a decoupled YOLO + SAM + LLM workflow:
 
 Target classes: maize seedling, broadleaf weed, grass weed.
 
+> For field three-class detection, use your fine-tuned `best.pt`. The default `yolov8s.pt` is COCO pretrained and is only for smoke-testing the pipeline.
+
 ## Requirements
 
 - Python 3.10+
 - See `requirements.txt`
 - Download YOLO / SAM weights locally (not included in repo)
+- LLM API key via environment variable (never commit secrets):
+
+```bash
+export LLM_API_KEY='your_key'
+# or
+export DEEPSEEK_API_KEY='your_key'
+```
 
 ## Quick start
 
@@ -26,14 +35,18 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # Place weights locally, e.g. yolov8s.pt and weights/sam_vit_b_01ec64.pth
+export LLM_API_KEY='your_key'
 
-# Full pipeline
+# Full pipeline（默认读取 configs/default.yaml，命令行可覆盖）
 python main.py run --source data/raw
+
+# 仅 YOLO + 难例，跳过 SAM / LLM
+python main.py run --source data/raw --skip-sam --skip-llm
 
 # YOLO detect only
 python main.py detect --source data/raw
 
-# Train YOLO
+# Train YOLO（需补齐 data/images 与 data/labels）
 python main.py train --data configs/field.yaml
 ```
 
@@ -61,4 +74,5 @@ TBD. Contact the author before commercial use.
 
 ## Author
 
-Wenyan Yao — Agricultural Engineering / Precision Agriculture
+Wenyan Yao — Agricultural Engineering / Precision Agriculture  
+GitHub: https://github.com/WenyanYao0901/field-yolo-sam-llm

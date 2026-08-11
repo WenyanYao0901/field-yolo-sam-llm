@@ -5,9 +5,9 @@
 完整链路:
     1. YOLO 初检（类别 + 置信度 + 初检框）
     2. 难例打分（复用初检结果，避免二次推理）
-    3. SAM 精炼难例图 / 不确定框
+    3. SAM 精炼难例图 / 不确定框（可用 --skip-sam 跳过）
     4. 合并最终检测结果并可视化
-    5. LLM（DeepSeek/GPT）质检与中文报告
+    5. LLM（DeepSeek/GPT）质检与中文报告（可用 --skip-llm 跳过）
 
 合并规则（论文可复述）:
     - 类别、置信度：始终使用 YOLO
@@ -23,7 +23,12 @@ import cv2
 
 from src.assist.hard_mining import is_uncertain_box, score_hard_example
 from src.assist.llm_review import review_with_llm
-from src.assist.sam_annotate import annotate_with_box_prompt, load_sam, save_yolo_label
+from src.assist.sam_annotate import (
+    load_sam,
+    predict_box_prompt,
+    save_yolo_label,
+    set_sam_image,
+)
 from src.detect.infer import detect_image, draw_detections, load_detector
 from src.utils.common import ensure_dir, list_images, save_json
 
@@ -62,6 +67,8 @@ def run_pipeline(
     llm_base_url: str = "https://api.deepseek.com",
     llm_model: str = "deepseek-chat",
     llm_temperature: float = 0.2,
+    skip_sam: bool = False,
+    skip_llm: bool = False,
 ) -> dict[str, Any]:
     """
     执行完整闭环，返回 summary 字典。
@@ -74,8 +81,8 @@ def run_pipeline(
           vis/                    # 最终可视化
           labels_sam/             # SAM 精炼 YOLO txt（可入库）
           sam_masks/              # 掩膜可视化
-          qc_report.json          # LLM 质检
-          report.md               # LLM 中文报告
+          qc_report.json          # LLM 质检（未跳过时）
+          report.md               # LLM 中文报告（未跳过时）
           summary.json            # 流水线摘要
     """
     images = list_images(source)
@@ -88,6 +95,10 @@ def run_pipeline(
     mask_dir = ensure_dir(out_dir / "sam_masks")
 
     print(f"[流水线] 图像数={len(images)} 输出={out_dir}")
+    if skip_sam:
+        print("[流水线] 已跳过 SAM")
+    if skip_llm:
+        print("[流水线] 已跳过 LLM")
 
     # ---------- 1. YOLO 初检 ----------
     model = load_detector(weights=weights, device=device)
@@ -118,8 +129,18 @@ def run_pipeline(
     hard_image_set = {h["image"] for h in hard_examples}
 
     # ---------- 3. SAM 精炼 + 结果合并 ----------
-    # 权重不存在时 load_sam 会直接抛错
-    predictor = load_sam(sam_checkpoint, sam_type, device=device)
+    # 仅在确有框需要精炼时再加载权重，避免无难例时白白读大模型
+    need_sam = (not skip_sam) and any(
+        _should_refine_box(det, item["image"] in hard_image_set, conf_low, conf_high)
+        for item in scored_items
+        for det in item["detections"]
+    )
+    predictor = load_sam(sam_checkpoint, sam_type, device=device) if need_sam else None
+    if skip_sam:
+        pass
+    elif not need_sam:
+        print("[SAM] 本批次无需精炼框，跳过加载权重")
+
     final_results: list[dict[str, Any]] = []
     sam_box_count = 0
 
@@ -133,6 +154,17 @@ def run_pipeline(
         merged: list[dict[str, Any]] = []
         sam_labels: list[dict[str, Any]] = []
 
+        # 同一张图只编码一次 embedding
+        refine_indices = [
+            i
+            for i, det in enumerate(item["detections"])
+            if predictor is not None
+            and _should_refine_box(det, image_is_hard, conf_low, conf_high)
+        ]
+        img_h = img_w = 0
+        if refine_indices:
+            img_h, img_w = set_sam_image(predictor, image)
+
         for i, det in enumerate(item["detections"]):
             # 默认保留 YOLO 结果
             out_det = {
@@ -142,12 +174,13 @@ def run_pipeline(
                 "bbox_xyxy": list(det["bbox_xyxy"]),
                 "refined_by": "yolo",
             }
-            if _should_refine_box(det, image_is_hard, conf_low, conf_high):
-                refined = annotate_with_box_prompt(
+            if i in refine_indices:
+                refined = predict_box_prompt(
                     predictor,
-                    image,
                     det["bbox_xyxy"],
                     int(det["class_id"]),
+                    img_w,
+                    img_h,
                 )
                 if refined is not None:
                     # 只替换框；类别与置信度仍用 YOLO
@@ -187,16 +220,24 @@ def run_pipeline(
     save_json(final_results, out_dir / "final_results.json")
 
     # ---------- 4. LLM 质检与报告 ----------
-    llm_out = review_with_llm(
-        final_results=final_results,
-        hard_examples=hard_examples,
-        base_url=llm_base_url,
-        model=llm_model,
-        temperature=llm_temperature,
-    )
-    save_json(llm_out["qc"], out_dir / "qc_report.json")
-    (out_dir / "report.md").write_text(llm_out["report_md"], encoding="utf-8")
-    save_json(llm_out["summary_sent"], out_dir / "llm_input_summary.json")
+    llm_artifacts: dict[str, str] = {}
+    if skip_llm:
+        print("[LLM] 已跳过，不生成质检报告")
+    else:
+        llm_out = review_with_llm(
+            final_results=final_results,
+            hard_examples=hard_examples,
+            base_url=llm_base_url,
+            model=llm_model,
+            temperature=llm_temperature,
+        )
+        save_json(llm_out["qc"], out_dir / "qc_report.json")
+        (out_dir / "report.md").write_text(llm_out["report_md"], encoding="utf-8")
+        save_json(llm_out["summary_sent"], out_dir / "llm_input_summary.json")
+        llm_artifacts = {
+            "qc_report": str(out_dir / "qc_report.json"),
+            "report_md": str(out_dir / "report.md"),
+        }
 
     summary = {
         "source": source,
@@ -205,17 +246,19 @@ def run_pipeline(
         "num_hard_images": len(hard_examples),
         "total_detections": sum(x["count"] for x in final_results),
         "sam_refined_boxes": sam_box_count,
-        "llm_model": llm_model,
+        "skip_sam": skip_sam,
+        "skip_llm": skip_llm,
+        "llm_model": None if skip_llm else llm_model,
         "output_dir": str(out_dir),
         "artifacts": {
             "final_results": str(out_dir / "final_results.json"),
             "vis": str(vis_dir),
-            "qc_report": str(out_dir / "qc_report.json"),
-            "report_md": str(out_dir / "report.md"),
+            **llm_artifacts,
         },
     }
     save_json(summary, out_dir / "summary.json")
     print(f"[完成] 最终结果: {out_dir / 'final_results.json'}")
-    print(f"[完成] 质检报告: {out_dir / 'qc_report.json'}")
-    print(f"[完成] 中文报告: {out_dir / 'report.md'}")
+    if not skip_llm:
+        print(f"[完成] 质检报告: {out_dir / 'qc_report.json'}")
+        print(f"[完成] 中文报告: {out_dir / 'report.md'}")
     return summary

@@ -11,23 +11,18 @@ LLM 质检与报告模块（语言大模型：DeepSeek / GPT）。
     OpenAI 兼容 Chat Completions
     默认 DeepSeek；可通过 base_url / model 切换到 GPT
 密钥:
-    直接写在下方 LLM_API_KEY 常量中（不再读环境变量）
+    从环境变量读取（优先 LLM_API_KEY，其次 DEEPSEEK_API_KEY）
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 import requests
-
-# ---------------------------------------------------------------------------
-# LLM API Key（写死在此；把引号内换成你的真实密钥后即可调用）
-# DeepSeek 一般以 sk- 开头；OpenAI 同理
-# ---------------------------------------------------------------------------
-LLM_API_KEY = "REDACTED_REVOKED_KEY"
 
 
 def _basename(path: str) -> str:
@@ -37,14 +32,21 @@ def _basename(path: str) -> str:
 
 def resolve_api_key() -> str:
     """
-    返回代码中写死的 API Key。
+    从环境变量解析 API Key。
 
-    若仍为占位字符串或为空，直接报错提示去改 LLM_API_KEY。
+    优先级:
+        1. LLM_API_KEY
+        2. DEEPSEEK_API_KEY
+
+    未设置时直接报错，避免把密钥写进源码。
     """
-    key = (LLM_API_KEY or "").strip()
-    if not key or key == "在此填入你的密钥":
+    key = (os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or "").strip()
+    if not key:
         raise RuntimeError(
-            "请先在 src/assist/llm_review.py 中把 LLM_API_KEY 改成你的真实密钥。"
+            "未找到 LLM API Key。请先设置环境变量，例如:\n"
+            "  export LLM_API_KEY='你的密钥'\n"
+            "或:\n"
+            "  export DEEPSEEK_API_KEY='你的密钥'"
         )
     return key
 

@@ -10,6 +10,7 @@ SAM 半自动精炼模块（视觉大模型）。
     - SAM 本身不分类；类别与置信度始终沿用 YOLO
     - SAM 不进入最终 mAP 验收口径
     - 权重缺失时直接报错，不使用假数据顶替
+    - 同一张图应先 set_sam_image 一次，再对多个框 predict，避免重复编码
 """
 from __future__ import annotations
 
@@ -89,6 +90,56 @@ def load_sam(checkpoint: str, model_type: str = "vit_b", device: str = ""):
     return SamPredictor(sam)
 
 
+def set_sam_image(predictor, image_bgr: np.ndarray) -> tuple[int, int]:
+    """
+    为当前图像计算一次 SAM embedding。
+
+    同一张图多个框精炼前只调用一次，避免重复 set_image。
+
+    返回:
+        (img_h, img_w)
+    """
+    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+    predictor.set_image(image_rgb)
+    h, w = image_bgr.shape[:2]
+    return h, w
+
+
+def predict_box_prompt(
+    predictor,
+    box_xyxy: list[float],
+    class_id: int,
+    img_w: int,
+    img_h: int,
+) -> dict[str, Any] | None:
+    """
+    在已 set_sam_image 的图像上，用矩形框提示生成精炼结果。
+
+    参数:
+        predictor: load_sam 返回的预测器（需已 set_image）
+        box_xyxy: [x1, y1, x2, y2] 提示框（通常来自 YOLO）
+        class_id: 类别编号（由 YOLO/标注员给定）
+        img_w / img_h: 原图像宽高
+
+    返回:
+        含 class_id / yolo_bbox / bbox_xyxy / sam_score / mask；失败返回 None
+    """
+    box = np.array(box_xyxy, dtype=np.float32)
+    # multimask_output=False：只要最置信的一个掩膜，便于批量处理
+    masks, scores, _ = predictor.predict(box=box, multimask_output=False)
+    mask = masks[0].astype(np.uint8)
+    yolo_box = _mask_to_yolo_bbox(mask, img_w, img_h)
+    if yolo_box is None:
+        return None
+    return {
+        "class_id": class_id,
+        "yolo_bbox": yolo_box,
+        "bbox_xyxy": yolo_bbox_to_xyxy(yolo_box, img_w, img_h),
+        "sam_score": float(scores[0]),
+        "mask": mask,
+    }
+
+
 def annotate_with_box_prompt(
     predictor,
     image_bgr: np.ndarray,
@@ -97,6 +148,9 @@ def annotate_with_box_prompt(
 ) -> dict[str, Any] | None:
     """
     使用矩形框提示 SAM，生成掩膜并导出精炼框。
+
+    兼容旧调用：内部会先 set_image 再预测。
+    批量同图多框时，请改用 set_sam_image + predict_box_prompt。
 
     参数:
         predictor: load_sam 返回的预测器
@@ -107,24 +161,8 @@ def annotate_with_box_prompt(
     返回:
         含 class_id / yolo_bbox / bbox_xyxy / sam_score / mask；失败返回 None
     """
-    # SAM 期望 RGB
-    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-    predictor.set_image(image_rgb)
-    box = np.array(box_xyxy, dtype=np.float32)
-    # multimask_output=False：只要最置信的一个掩膜，便于批量处理
-    masks, scores, _ = predictor.predict(box=box, multimask_output=False)
-    mask = masks[0].astype(np.uint8)
-    h, w = image_bgr.shape[:2]
-    yolo_box = _mask_to_yolo_bbox(mask, w, h)
-    if yolo_box is None:
-        return None
-    return {
-        "class_id": class_id,
-        "yolo_bbox": yolo_box,
-        "bbox_xyxy": yolo_bbox_to_xyxy(yolo_box, w, h),
-        "sam_score": float(scores[0]),
-        "mask": mask,
-    }
+    img_h, img_w = set_sam_image(predictor, image_bgr)
+    return predict_box_prompt(predictor, box_xyxy, class_id, img_w, img_h)
 
 
 def save_yolo_label(label_path: str | Path, objects: list[dict[str, Any]]) -> None:

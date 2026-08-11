@@ -8,13 +8,16 @@
 
 常见难例信号:
     - 置信度落在中间带（模型犹豫）
-    - 低置信框较多
+    - 低置信框较多（需把 YOLO conf 设得低于 conf_low 才会出现）
     - 单图目标过密（遮挡/粘连风险高）
     - 完全无检测（可能漏检，也需复核）
 """
 from __future__ import annotations
 
 from typing import Any
+
+# 无检测时的难例分数：需高于默认 hard_score_thresh(0.45)，保证进入复核
+EMPTY_DETECTION_HARD_SCORE = 1.0
 
 
 def score_hard_example(
@@ -26,8 +29,9 @@ def score_hard_example(
     根据一图检测结果计算难例分数。
 
     打分逻辑:
+        - 无检测: 固定给 EMPTY_DETECTION_HARD_SCORE（漏检复核）
         - 每个“不确定区”框 +1.0
-        - 每个低置信框 +0.5
+        - 每个低置信框 +0.5（仅当存在 conf < conf_low 的框）
         - 目标拥挤（>=8）额外 +2.0
 
     返回:
@@ -36,7 +40,7 @@ def score_hard_example(
     if not detections:
         # 无框不一定简单：田间可能存在漏检，仍建议抽检
         return {
-            "hard_score": 0.0,
+            "hard_score": float(EMPTY_DETECTION_HARD_SCORE),
             "reason": "无检测，可能漏检",
             "uncertain": 0,
             "dense": False,
@@ -45,6 +49,7 @@ def score_hard_example(
     confs = [d["confidence"] for d in detections]
     # 中间置信：模型不够确定，最值得人工/SAM 看
     uncertain = sum(1 for c in confs if conf_low <= c < conf_high)
+    # 低置信：当 YOLO 过滤阈值低于 conf_low 时才会进入此路径
     low = sum(1 for c in confs if c < conf_low)
     dense = len(detections) >= 8
 

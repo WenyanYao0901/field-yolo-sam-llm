@@ -32,6 +32,54 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
+def flatten_default_config(path: str | Path) -> dict[str, Any]:
+    """
+    将 configs/default.yaml 展平为 CLI / 流水线可用的扁平参数。
+
+    说明:
+        - 文件不存在时返回空字典（由调用方保留代码内默认值）
+        - 仅抽取已知字段，忽略无关键
+    """
+    cfg_path = Path(path)
+    if not cfg_path.exists():
+        return {}
+
+    cfg = load_yaml(cfg_path)
+    model = cfg.get("model") or {}
+    pipeline = cfg.get("pipeline") or {}
+    assist = cfg.get("assist") or {}
+    llm = cfg.get("llm") or {}
+
+    flat: dict[str, Any] = {}
+    if "name" in model:
+        flat["weights"] = model["name"]
+    for key in ("imgsz", "conf", "iou", "device"):
+        if key in model:
+            flat[key] = model[key]
+    for key in (
+        "source",
+        "save_dir",
+        "conf_low",
+        "conf_high",
+        "hard_score_thresh",
+        "skip_sam",
+        "skip_llm",
+    ):
+        if key in pipeline:
+            flat[key] = pipeline[key]
+    if "sam_checkpoint" in assist:
+        flat["sam_checkpoint"] = assist["sam_checkpoint"]
+    if "sam_type" in assist:
+        flat["sam_type"] = assist["sam_type"]
+    if "base_url" in llm:
+        flat["llm_base_url"] = llm["base_url"]
+    if "model" in llm:
+        flat["llm_model"] = llm["model"]
+    if "temperature" in llm:
+        flat["llm_temperature"] = llm["temperature"]
+    return flat
+
+
 def save_json(data: Any, path: str | Path) -> None:
     """
     将数据保存为 JSON。

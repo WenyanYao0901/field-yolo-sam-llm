@@ -1,11 +1,12 @@
 # =============================================================================
 # 默认运行参数（YOLO 检测 / SAM 精炼 / LLM 质检报告）
-# 命令行参数可覆盖本文件中的同义项
+# 由 main.py 加载；命令行同名参数可覆盖本文件
 # =============================================================================
 
 # ---------- 主模型：YOLO 实时检测 ----------
 model:
-  name: yolov8s.pt   # 可选: yolov8s.pt / yolo11s.pt / 自训 best.pt
+  # 通用预训练仅用于跑通流程；田间三类请换成 runs/detect/train/.../best.pt
+  name: yolov8s.pt
   imgsz: 640         # 训练与推理输入边长
   conf: 0.25         # 默认置信度阈值
   iou: 0.45          # NMS IoU 阈值
@@ -18,6 +19,8 @@ pipeline:
   conf_low: 0.25                   # 难例：不确定区间下界
   conf_high: 0.6                   # 难例上界 / 伪标签门槛
   hard_score_thresh: 0.45          # 难例分数阈值
+  skip_sam: false                  # true 时跳过 SAM
+  skip_llm: false                  # true 时跳过 LLM
 
 # ---------- 视觉大模型 SAM（精炼框） ----------
 assist:
@@ -28,7 +31,7 @@ assist:
 # ---------- 语言大模型（质检 + 报告） ----------
 llm:
   # 默认 DeepSeek；切 GPT 时可改 base_url 与 model
+  # API Key 请用环境变量 LLM_API_KEY 或 DEEPSEEK_API_KEY，勿写入仓库
   base_url: https://api.deepseek.com
   model: deepseek-chat
   temperature: 0.2
-  # API Key 写死在 src/assist/llm_review.py 的 LLM_API_KEY 常量中
