@@ -55,6 +55,7 @@ python main.py run --source data/raw --skip-sam --skip-llm
 python main.py detect --source data/raw
 
 # Train YOLO（需补齐 data/images 与 data/labels）
+python scripts/check_dataset_split.py --data configs/field.yaml
 python main.py train --data configs/field.yaml
 
 # Run lightweight unit tests (no model/API call required)
@@ -71,6 +72,20 @@ src/assist/       SAM hard-mining, LLM review
 src/pipeline/     end-to-end run
 scripts/          sample image utilities
 docs/             manuscript draft (in preparation)
+```
+
+## Dataset policy
+
+The repository does not distribute the field dataset. Put locally cleared data
+under `data/images/{train,val,test}` and matching YOLO labels under
+`data/labels/{train,val,test}`. These directories are ignored by Git.
+
+Split by field, date, or acquisition batch before training. Do not place the
+same image, re-encoded copy, or adjacent burst frames in different splits. The
+provided checker detects exact cross-split duplicates and missing labels:
+
+```bash
+python scripts/check_dataset_split.py --data configs/field.yaml
 ```
 
 ## Status

@@ -7,6 +7,10 @@
 #   images/val    <-> labels/val
 #   images/test   <-> labels/test
 # 标签每行: <class_id> <cx> <cy> <w> <h>  （归一化到 0~1）
+#
+# 数据不随仓库发布。请按地块/日期/采集批次划分，不要将同一图像
+# 或连拍帧分到不同集合。训练前运行:
+#   python scripts/check_dataset_split.py --data configs/field.yaml
 # =============================================================================
 
 path: data
