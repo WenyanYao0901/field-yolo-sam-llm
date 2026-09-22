@@ -28,3 +28,5 @@ visualisation, and JSON output completed successfully.
 
 The matching structured output is stored in
 [`smoke_test_predictions.json`](smoke_test_predictions.json).
+Its temporary absolute input path was normalized to `<temporary-input>` before
+commit so the artifact does not expose a machine-specific directory.

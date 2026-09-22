@@ -60,6 +60,9 @@ python main.py train --data configs/field.yaml
 
 # Run lightweight unit tests (no model/API call required)
 python -m unittest discover -s tests -v
+
+# Check tracked text for likely committed API tokens
+python scripts/check_secrets.py
 ```
 
 ## Project structure
@@ -120,6 +123,12 @@ python scripts/check_dataset_split.py --data configs/field.yaml
 The repository source code and original software diagrams are licensed under
 the [Apache License 2.0](LICENSE). Third-party weights, datasets, services, and
 unpublished manuscript rights are excluded unless separately stated.
+
+## Citation and security
+
+- Citation metadata: [`CITATION.cff`](CITATION.cff)
+- Release history: [`CHANGELOG.md`](CHANGELOG.md)
+- Private vulnerability and credential guidance: [`SECURITY.md`](SECURITY.md)
 
 ## Author
 

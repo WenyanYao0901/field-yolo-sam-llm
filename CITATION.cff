@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using this metadata."
+title: "field-yolo-sam-llm"
+type: software
+authors:
+  - family-names: "Yao"
+    given-names: "Wenyan"
+    affiliation: "Liaocheng University"
+repository-code: "https://github.com/WenyanYao0901/field-yolo-sam-llm"
+url: "https://github.com/WenyanYao0901/field-yolo-sam-llm"
+license: Apache-2.0
+version: 0.1.0
+date-released: 2026-09-23
+keywords:
+  - precision agriculture
+  - crop weed detection
+  - YOLO
+  - Segment Anything
+  - large language model

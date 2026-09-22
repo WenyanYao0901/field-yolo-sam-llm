@@ -1,6 +1,6 @@
 [
   {
-    "image": "/tmp/field-yolo-release-smoke.zEPqsf/input/sample_01_mixed.jpg",
+    "image": "<temporary-input>/sample_01_mixed.jpg",
     "count": 0,
     "detections": []
   }
