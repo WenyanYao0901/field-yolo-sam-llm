@@ -1,0 +1,8 @@
+field-yolo-sam-llm
+Copyright 2026 Wenyan Yao
+
+This product includes software developed for research on field seedling
+crop–weed detection at Liaocheng University.
+
+Third-party model weights, datasets, and services are not included in the
+Apache-2.0 grant unless their own licenses explicitly say otherwise.

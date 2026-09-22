@@ -2,6 +2,10 @@
 
 Hard-example-driven closed-loop pipeline for **field seedling crop–weed detection** in precision agriculture.
 
+> **Research status:** this is a reproducibility-oriented research prototype,
+> not a production agronomic decision system. The repository currently contains
+> no validated field benchmark or publishable quantitative result.
+
 ## Overview
 
 This repository implements a decoupled YOLO + SAM + LLM workflow:
@@ -72,14 +76,37 @@ docs/             manuscript draft (in preparation)
 ## Status
 
 - Research prototype developed by Wenyan Yao (Liaocheng University)
+- Project created: **2026-07-31**
 - Related journal manuscript **in preparation** (not yet published)
 - Field dataset and full quantitative evaluation are ongoing
 
+## Contributions
+
+- **Wenyan Yao:** research conception, agricultural problem definition,
+  pipeline design, manuscript preparation, and project stewardship.
+- **OpenAI Codex (under the author's direction):** implementation review,
+  configuration/CLI integration, robustness fixes, tests, security hygiene,
+  and documentation improvements. All generated changes remain subject to
+  author review and repository licensing.
+
+## Research-use boundaries
+
+- YOLO detections, SAM refinements, and LLM reports require independent field
+  validation before agronomic or operational use.
+- Synthetic sample images are only for software smoke tests.
+- Manuscript placeholders must never be reported as measured results.
+- See [docs/PUBLICATION_STATUS.md](docs/PUBLICATION_STATUS.md) before
+  redistributing manuscripts, images, datasets, or model weights.
+
 ## License
 
-TBD. Contact the author before commercial use.
+The repository source code and original software diagrams are licensed under
+the [Apache License 2.0](LICENSE). Third-party weights, datasets, services, and
+unpublished manuscript rights are excluded unless separately stated.
 
 ## Author
 
-Wenyan Yao — Agricultural Engineering / Precision Agriculture  
-GitHub: https://github.com/WenyanYao0901/field-yolo-sam-llm
+- Wenyan Yao — Agricultural Engineering / Precision Agriculture
+- Liaocheng University
+- Contact: [GitHub Issues](https://github.com/WenyanYao0901/field-yolo-sam-llm/issues)
+- Repository: https://github.com/WenyanYao0901/field-yolo-sam-llm
