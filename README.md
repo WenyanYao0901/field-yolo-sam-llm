@@ -110,6 +110,8 @@ python scripts/check_dataset_split.py --data configs/field.yaml
   validation before agronomic or operational use.
 - Synthetic sample images are only for software smoke tests.
 - Manuscript placeholders must never be reported as measured results.
+- A reproducible synthetic smoke-test screenshot is available under
+  [`docs/results`](docs/results/README.md); it is explicitly not a benchmark.
 - See [docs/PUBLICATION_STATUS.md](docs/PUBLICATION_STATUS.md) before
   redistributing manuscripts, images, datasets, or model weights.
 

@@ -10,6 +10,7 @@ runs/
 .idea/
 .DS_Store
 Ultralytics/
+docs/v2_figures/*placeholder*
 data/raw/*
 !data/raw/.gitkeep
 data/images/train/*
