@@ -15,7 +15,14 @@ from typing import Any
 import cv2
 from ultralytics import YOLO
 
-from src.utils.common import ensure_dir, list_images, pick_device, save_json
+from src.utils.common import (
+    ensure_dir,
+    list_images,
+    pick_device,
+    relative_image_path,
+    save_json,
+    validate_inference_params,
+)
 
 
 def load_detector(weights: str = "yolov8s.pt", device: str = "") -> YOLO:
@@ -134,18 +141,21 @@ def run_detect(
           vis/               # 画框图像
           predictions.json   # 结构化检测结果
     """
-    model = load_detector(weights=weights, device=device)
+    validate_inference_params(conf, iou, imgsz)
     images = list_images(source)
     if not images:
         raise FileNotFoundError(f"未找到图像: {source}")
 
+    # Validate input before loading a potentially large model.
+    model = load_detector(weights=weights, device=device)
     out_dir = ensure_dir(save_dir)
     vis_dir = ensure_dir(out_dir / "vis")
     all_results: list[dict[str, Any]] = []
 
     for img_path in images:
         dets = detect_image(model, img_path, conf=conf, iou=iou, imgsz=imgsz)
-        draw_detections(img_path, dets, vis_dir / img_path.name)
+        rel_path = relative_image_path(img_path, source)
+        draw_detections(img_path, dets, vis_dir / rel_path)
         all_results.append(
             {"image": str(img_path), "count": len(dets), "detections": dets}
         )

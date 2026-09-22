@@ -27,6 +27,10 @@ export LLM_API_KEY='your_key'
 export DEEPSEEK_API_KEY='your_key'
 ```
 
+All relative input, weight, and output paths are resolved from the current
+working directory. Run commands from the repository root for reproducible
+results.
+
 ## Quick start
 
 ```bash
@@ -48,6 +52,9 @@ python main.py detect --source data/raw
 
 # Train YOLO（需补齐 data/images 与 data/labels）
 python main.py train --data configs/field.yaml
+
+# Run lightweight unit tests (no model/API call required)
+python -m unittest discover -s tests -v
 ```
 
 ## Project structure

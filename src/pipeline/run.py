@@ -30,7 +30,13 @@ from src.assist.sam_annotate import (
     set_sam_image,
 )
 from src.detect.infer import detect_image, draw_detections, load_detector
-from src.utils.common import ensure_dir, list_images, save_json
+from src.utils.common import (
+    ensure_dir,
+    list_images,
+    relative_image_path,
+    save_json,
+    validate_inference_params,
+)
 
 
 def _should_refine_box(
@@ -85,6 +91,14 @@ def run_pipeline(
           report.md               # LLM 中文报告（未跳过时）
           summary.json            # 流水线摘要
     """
+    validate_inference_params(
+        conf,
+        iou,
+        imgsz,
+        conf_low=conf_low,
+        conf_high=conf_high,
+        hard_score_thresh=hard_score_thresh,
+    )
     images = list_images(source)
     if not images:
         raise FileNotFoundError(f"未找到图像: {source}")
@@ -146,6 +160,7 @@ def run_pipeline(
 
     for item in scored_items:
         img_path = Path(item["image"])
+        rel_path = relative_image_path(img_path, source)
         image = cv2.imread(str(img_path))
         if image is None:
             raise FileNotFoundError(f"无法读取图像: {img_path}")
@@ -194,15 +209,16 @@ def run_pipeline(
                             "yolo_bbox": refined["yolo_bbox"],
                         }
                     )
-                    mask_path = mask_dir / f"{img_path.stem}_{i}.png"
+                    mask_path = mask_dir / rel_path.parent / f"{img_path.stem}_{i}.png"
+                    ensure_dir(mask_path.parent)
                     cv2.imwrite(str(mask_path), refined["mask"] * 255)
 
             merged.append(out_det)
 
         if sam_labels:
-            save_yolo_label(label_dir / f"{img_path.stem}.txt", sam_labels)
+            save_yolo_label(label_dir / rel_path.with_suffix(".txt"), sam_labels)
 
-        draw_detections(img_path, merged, vis_dir / img_path.name)
+        draw_detections(img_path, merged, vis_dir / rel_path)
         final_results.append(
             {
                 "image": str(img_path),

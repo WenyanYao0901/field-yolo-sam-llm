@@ -82,9 +82,13 @@ def load_sam(checkpoint: str, model_type: str = "vit_b", device: str = ""):
             f"未找到 SAM 权重: {checkpoint}\n"
             "请下载后放到 weights/，例如 sam_vit_b_01ec64.pth"
         )
+    if model_type not in sam_model_registry:
+        supported = ", ".join(sorted(sam_model_registry))
+        raise ValueError(f"不支持的 SAM 结构: {model_type}；可选: {supported}")
     dev = pick_device(device)
-    # ultralytics 用 "0" 表示 CUDA，SAM 需要 "cuda" 字符串
-    torch_device = "cuda" if dev == "0" else dev
+    # Ultralytics accepts GPU indices ("0", "1", ...), while torch expects
+    # cuda / cuda:N. Preserve explicit torch-style device strings.
+    torch_device = f"cuda:{dev}" if dev.isdigit() else dev
     sam = sam_model_registry[model_type](checkpoint=checkpoint)
     sam.to(device=torch_device)
     return SamPredictor(sam)

@@ -25,6 +25,16 @@ from typing import Any
 import requests
 
 
+def _chat_completions_url(base_url: str) -> str:
+    """Build an OpenAI-compatible endpoint without duplicating ``/v1``."""
+    normalized = base_url.strip().rstrip("/")
+    if not normalized:
+        raise ValueError("LLM base_url 不能为空")
+    if normalized.endswith("/v1"):
+        return normalized + "/chat/completions"
+    return normalized + "/v1/chat/completions"
+
+
 def _basename(path: str) -> str:
     """只保留文件名，缩短发给 LLM 的 prompt。"""
     return Path(path).name
@@ -172,7 +182,7 @@ def review_with_llm(
         + json.dumps(summary, ensure_ascii=False, indent=2)
     )
 
-    url = base_url.rstrip("/") + "/v1/chat/completions"
+    url = _chat_completions_url(base_url)
     payload = {
         "model": model,
         "temperature": temperature,
@@ -187,7 +197,10 @@ def review_with_llm(
     }
 
     print(f"[LLM] 请求 {model} @ {base_url}")
-    resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    except requests.RequestException as exc:
+        raise RuntimeError(f"LLM API 请求失败: {exc}") from exc
     if resp.status_code >= 400:
         raise RuntimeError(f"LLM API 失败 HTTP {resp.status_code}: {resp.text[:800]}")
 

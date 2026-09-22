@@ -135,6 +135,55 @@ def list_images(folder: str | Path) -> list[Path]:
     return sorted(p for p in folder.rglob("*") if p.suffix.lower() in exts)
 
 
+def relative_image_path(image_path: str | Path, source: str | Path) -> Path:
+    """Return a stable relative path for an image under ``source``.
+
+    Keeping the relative directory structure prevents two images such as
+    ``plot_a/frame.jpg`` and ``plot_b/frame.jpg`` from overwriting each
+    other's visualisations, labels, or masks.
+    """
+    image = Path(image_path)
+    source_path = Path(source)
+    if source_path.is_file():
+        return Path(image.name)
+    try:
+        return image.resolve().relative_to(source_path.resolve())
+    except ValueError:
+        # Defensive fallback for callers supplying an externally constructed
+        # image list that is not actually below source.
+        return Path(image.name)
+
+
+def validate_inference_params(
+    conf: float,
+    iou: float,
+    imgsz: int,
+    *,
+    conf_low: float | None = None,
+    conf_high: float | None = None,
+    hard_score_thresh: float | None = None,
+) -> None:
+    """Validate common inference and hard-example thresholds early."""
+    if not 0.0 <= conf <= 1.0:
+        raise ValueError(f"conf 必须在 [0, 1] 内，当前为 {conf}")
+    if not 0.0 <= iou <= 1.0:
+        raise ValueError(f"iou 必须在 [0, 1] 内，当前为 {iou}")
+    if imgsz <= 0:
+        raise ValueError(f"imgsz 必须大于 0，当前为 {imgsz}")
+    if (conf_low is None) != (conf_high is None):
+        raise ValueError("conf_low 和 conf_high 必须同时提供")
+    if conf_low is not None and conf_high is not None:
+        if not 0.0 <= conf_low < conf_high <= 1.0:
+            raise ValueError(
+                "难例置信度区间必须满足 0 <= conf_low < conf_high <= 1，"
+                f"当前为 [{conf_low}, {conf_high})"
+            )
+    if hard_score_thresh is not None and hard_score_thresh < 0:
+        raise ValueError(
+            f"hard_score_thresh 不能为负数，当前为 {hard_score_thresh}"
+        )
+
+
 def ensure_dir(path: str | Path) -> Path:
     """
     确保目录存在并返回 Path。
